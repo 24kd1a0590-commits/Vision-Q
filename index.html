@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Govt Hospital Smart Queue System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #0056b3; --secondary: #28a745; --warning: #ffc107; --danger: #dc3545; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        /* Form Styling */
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #218838; }
+
+        /* Status & Predictions */
+        .prediction-box { background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; }
+        .wait-time { font-size: 24px; font-weight: bold; color: var(--primary); }
+        .crowd-alert { color: var(--danger); font-weight: bold; animation: blink 1s infinite; }
+        
+        /* Comparison Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .best-choice { background: #d4edda; color: #155724; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header style="text-align: center; margin-bottom: 30px;">
+        <h1>🏥 Smart Hospital Queue AI</h1>
+        <p>AI-Powered Wait Time & Crowd Prediction</p>
+    </header>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Patient Check-in</h2>
+            <p>Scan QR at OPD or enter details below:</p>
+            <input type="text" id="patientName" placeholder="Full Name (or ABHA ID)">
+            <input type="text" id="patientPhone" placeholder="WhatsApp Number (+91...)">
+            <select id="deptSelect">
+                <option value="101">General Medicine (OPD)</option>
+                <option value="103">Orthopedics</option>
+                <option value="104">Cardiology</option>
+            </select>
+            <select id="categorySelect">
+                <option value="General">General</option>
+                <option value="Senior Citizen">Senior Citizen (Priority)</option>
+                <option value="Emergency">Emergency</option>
+            </select>
+            <button onclick="joinQueue()">Generate AI Token</button>
+        </div>
+
+        <div class="card">
+            <h2>Your Live Status</h2>
+            <div id="statusArea">
+                <p>No active token. Please check in.</p>
+            </div>
+            <div class="prediction-box" id="predictionBox" style="display:none;">
+                <div>Estimated Wait Time:</div>
+                <div class="wait-time" id="waitTime">Calculating...</div>
+                <div id="bestTimeNote" style="margin-top:10px; font-size:0.9em; color:#666;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Hospital Network Comparison</h2>
+        <p>Real-time wait times across nearby Government Facilities:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Hospital Name</th>
+                    <th>Current Crowd</th>
+                    <th>Avg. Wait</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody id="comparisonTable">
+                <tr>
+                    <td>City District Hospital</td>
+                    <td>High</td>
+                    <td>85 mins</td>
+                    <td><span style="color:var(--danger)">Avoid Now</span></td>
+                </tr>
+                <tr>
+                    <td>Sub-District Clinic (B)</td>
+                    <td>Low</td>
+                    <td>15 mins</td>
+                    <td><span class="best-choice">Fastest Option</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_BASE = ""; // Relative path since we are on the same server
+
+    async function joinQueue() {
+        const payload = {
+            name: document.getElementById('patientName').value,
+            phone: document.getElementById('patientPhone').value,
+            dept_id: document.getElementById('deptSelect').value,
+            category: document.getElementById('categorySelect').value
+        };
+
+        if(!payload.name || !payload.phone) {
+            alert("Please enter Name and Phone");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/join`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            localStorage.setItem('hospitalToken', data.token);
+            updateStatus();
+            alert("Token Generated! You will receive a WhatsApp message shortly.");
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Backend Connection Failed!");
+        }
+    }
+
+    async function updateStatus() {
+        const token = localStorage.getItem('hospitalToken');
+        if (!token) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/get-wait-time?token=${token}`);
+            const data = await res.json();
+
+            document.getElementById('statusArea').innerHTML = `
+                <div style="font-size: 1.2em;"><strong>Token: ${data.token || token}</strong></div>
+                <p>Department: ${data.dept_name || 'Processing...'}</p>
+                <p>People ahead of you: <span style="font-size:1.5em; color:var(--primary)">${data.position ?? '...'}</span></p>
+            `;
+            
+            document.getElementById('predictionBox').style.display = 'block';
+            document.getElementById('waitTime').innerText = `${data.wait_minutes || '--'} Minutes`;
+            
+            // FEATURE: Best Time Recommendation (Mock Logic based on time)
+            const hour = new Date().getHours();
+            if(hour < 12) {
+                document.getElementById('bestTimeNote').innerHTML = `⚠️ Morning Rush: Crowd is 3x higher. <br><b>Best time to visit: 2:30 PM</b>`;
+            } else {
+                document.getElementById('bestTimeNote').innerHTML = `✅ Evening Flow: Crowd is thinning.`;
+            }
+
+        } catch (e) {
+            console.log("Waiting for backend updates...");
+        }
+    }
+
+    // Auto refresh every 10 seconds
+    setInterval(updateStatus, 10000);
+    // Initial check on load
+    window.onload = updateStatus;
+</script>
+
+</body>
+</html>
