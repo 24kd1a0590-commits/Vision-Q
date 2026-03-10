@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Doctor's Queue Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 40px; }
+        .dashboard { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0056b3; text-align: center; }
+        .next-btn { width: 100%; padding: 20px; background: #28a745; color: white; border: none; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 8px; }
+        .next-btn:hover { background: #218838; }
+        .patient-list { margin-top: 20px; border-top: 1px solid #eee; }
+        .patient-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .token-badge { background: #0056b3; color: white; padding: 2px 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <h1>👨‍⚕️ OPD Dashboard</h1>
+    <button class="next-btn" onclick="callNext()">CALL NEXT PATIENT</button>
+
+    <div class="patient-list">
+        <h3>Waiting Room (<span id="count">0</span>)</h3>
+        <div id="queueItems"></div>
+    </div>
+</div>
+
+<script>
+    const API = "http://localhost:3000";
+
+    async function refreshQueue() {
+        const res = await fetch(`${API}/view-queue`);
+        const queue = await res.json();
+        
+        document.getElementById('count').innerText = queue.length;
+        const list = document.getElementById('queueItems');
+        list.innerHTML = "";
+
+        queue.forEach((p, index) => {
+            list.innerHTML += `
+                <div class="patient-item">
+                    <span>${index + 1}. <b>${p.name}</b></span>
+                    <span class="token-badge">${p.token}</span>
+                </div>
+            `;
+        });
+    }
+
+    async function callNext() {
+        const res = await fetch(`${API}/call-next`, { method: 'POST' });
+        const data = await res.json();
+        
+        if(data.success) {
+            alert("Now Calling: " + data.nextPatient.name + " (" + data.nextPatient.token + ")");
+            refreshQueue();
+        } else {
+            alert(data.message);
+        }
+    }
+
+    // Auto-refresh the list every 5 seconds
+    setInterval(refreshQueue, 5000);
+    window.onload = refreshQueue;
+</script>
+
+</body>
+</html>

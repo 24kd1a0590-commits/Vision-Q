@@ -67,6 +67,29 @@ app.get("/get-wait-time", (req, res) => {
         wait_minutes: wait_minutes
     });
 });
+// DOCTOR'S API: Remove the first person in the queue (the one being called)
+app.post("/call-next", (req, res) => {
+    let queue = db.get("queue") || [];
+    
+    if (queue.length === 0) {
+        return res.json({ success: false, message: "Queue is empty!" });
+    }
+
+    const calledPatient = queue.shift(); // Removes the first person
+    db.set("queue", queue); // Save the updated list back to db.json
+
+    console.log(`👨‍⚕️ Doctor called: ${calledPatient.name} (Token: ${calledPatient.token})`);
+    
+    res.json({ 
+        success: true, 
+        nextPatient: calledPatient 
+    });
+});
+
+// DOCTOR'S API: View the entire current queue
+app.get("/view-queue", (req, res) => {
+    res.json(db.get("queue") || []);
+});
 
 app.listen(3000, () => {
     console.log("🚀 Local Server running at http://localhost:3000");
