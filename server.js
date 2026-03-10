@@ -1,63 +1,74 @@
 const express = require("express");
 const cors = require("cors");
+const editJsonFile = require("edit-json-file");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-let queue = [];
-let tokenCounter = 1;
+// Initialize the JSON file database
+let db = editJsonFile(`${__dirname}/db.json`, { autosave: true });
+
+// If the file is new, create an empty queue
+if (!db.get("queue")) {
+    db.set("queue", []);
+    db.set("tokenCounter", 1);
+}
 
 const departments = {
-    101: "General Medicine (OPD)",
-    103: "Orthopedics",
-    104: "Cardiology"
+    "101": "General Medicine (OPD)",
+    "103": "Orthopedics",
+    "104": "Cardiology"
 };
 
 app.post("/join", (req, res) => {
     const { name, phone, dept_id, category } = req.body;
+    
+    let queue = db.get("queue");
+    let counter = db.get("tokenCounter");
 
-    const token = "T" + tokenCounter++;
-
-    const patient = {
+    const token = "T" + counter;
+    
+    const newPatient = {
         token,
         name,
         phone,
         dept_id,
         category,
-        time: new Date()
+        time: new Date().toISOString()
     };
 
-    queue.push(patient);
+    queue.push(newPatient);
+    
+    // Save back to file
+    db.set("queue", queue);
+    db.set("tokenCounter", counter + 1);
 
-    res.json({
-        success: true,
-        token: token
-    });
+    console.log(`✅ Saved Patient: ${name} with Token: ${token}`);
+    res.json({ success: true, token: token });
 });
 
 app.get("/get-wait-time", (req, res) => {
-
     const token = req.query.token;
+    const queue = db.get("queue");
 
     const index = queue.findIndex(p => p.token === token);
 
-    if(index === -1){
-        return res.json({error:"Token not found"});
+    if (index === -1) {
+        return res.status(404).json({ error: "Token not found" });
     }
 
-    const position = index;
-    const wait_minutes = position * 5;
+    const wait_minutes = index * 5;
 
     res.json({
         token: token,
-        dept_name: departments[queue[index].dept_id],
-        position: position,
+        dept_name: departments[queue[index].dept_id] || "General OPD",
+        position: index,
         wait_minutes: wait_minutes
     });
-
 });
 
 app.listen(3000, () => {
-    console.log("Server running on port 3000");
+    console.log("🚀 Local Server running at http://localhost:3000");
+    console.log("📁 Data is being saved to db.json");
 });
