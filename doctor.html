@@ -18,6 +18,10 @@
 
 <div class="dashboard">
     <h1>👨‍⚕️ OPD Dashboard</h1>
+    <div style="background: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <span>📸 Live Camera Crowd:</span>
+    <b id="cctvCount" style="font-size: 24px; color: #856404;">0</b>
+</div>
     <button class="next-btn" onclick="callNext()">CALL NEXT PATIENT</button>
 
     <div class="patient-list">
@@ -62,6 +66,19 @@
     // Auto-refresh the list every 5 seconds
     setInterval(refreshQueue, 5000);
     window.onload = refreshQueue;
+    async function updateCrowd() {
+    try {
+        const res = await fetch(`${API}/get-crowd`);
+        const data = await res.json();
+        document.getElementById('cctvCount').innerText = data.count;
+
+        // Change color to red if crowd is high
+        if(data.count > 10) {
+            document.getElementById('cctvCount').style.color = "red";
+        }
+    } catch(e) {}
+}
+setInterval(updateCrowd, 2000); // Check crowd every 2 seconds
 </script>
 
 </body>
