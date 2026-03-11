@@ -27,6 +27,15 @@ app.post("/join", (req, res) => {
     let queue = db.get("queue");
     let counter = db.get("tokenCounter");
 
+    // ✅ Check if this name + phone already exists
+    const existingPatient = queue.find(p => p.name === name && p.phone === phone);
+    if (existingPatient) {
+        return res.status(400).json({ 
+            success: false, 
+            error: "You have already booked a token with this name and phone!" 
+        });
+    }
+
     const token = "T" + counter;
     
     const newPatient = {
@@ -89,6 +98,16 @@ app.post("/call-next", (req, res) => {
 // DOCTOR'S API: View the entire current queue
 app.get("/view-queue", (req, res) => {
     res.json(db.get("queue") || []);
+});
+app.get("/hospital-comparison", (req, res) => {
+    // Mock data - you can replace with real DB or calculation
+    const hospitals = [
+        { name: "City District Hospital", crowd: "High", avg_wait: 85 },
+        { name: "Sub-District Clinic (B)", crowd: "Low", avg_wait: 15 },
+        { name: "Community Health Center", crowd: "Medium", avg_wait: 45 }
+    ];
+
+    res.json(hospitals);
 });
 
 app.listen(3000, () => {
